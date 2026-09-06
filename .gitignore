@@ -1,0 +1,8 @@
+node_modules/
+.env
+.token*.json
+input/
+client/dist/
+client/node_modules/
+credentials/
+*.json.key
