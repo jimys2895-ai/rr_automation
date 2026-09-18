@@ -378,6 +378,13 @@ export default function ProcessTab() {
                 {skipped} with no new charges
               </span>
             )}
+            {jobData.bvdDiscountKeptPercent != null && (
+              <span className="text-gray-300">
+                {jobData.bvdDiscountKeptPercent === 0
+                  ? "BVD fuel: full discount to drivers"
+                  : `BVD fuel: ${jobData.bvdDiscountKeptPercent}% of discount kept`}
+              </span>
+            )}
             <button
               onClick={reset}
               className="ml-auto flex items-center gap-1.5 text-green-300 hover:text-green-500 transition-colors"

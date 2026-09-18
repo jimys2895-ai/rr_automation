@@ -12,7 +12,7 @@ require('./src/auth');
 const { getRateTable } = require('./src/exchange');
 const { parseBVD, parseEasyPass, parseBlueWater,
         aggregateBVD, aggregateEasyPass, aggregateBlueWater,
-        CASH_ADVANCE_FEE_USD } = require('./src/parsers');
+        CASH_ADVANCE_FEE_USD, bvdDiscountKeptPercent } = require('./src/parsers');
 const { getConsolidatedBills, getSubBill, updateConsolidatedBill } = require('./src/roserocket');
 const { runFuelSurchargeSync } = require('./src/fuelSurcharge');
 const { buildPreview } = require('./src/hoursSync');
@@ -263,8 +263,11 @@ app.post('/api/process', upload.fields([
   const { rateFor, min: rateMin, max: rateMax, count: rateDays } =
     await getRateTable(payPeriodStart, payPeriodEnd);
 
-  const bvdUsdByUnit = aggregateBVD(bvdUsdRows, rateFor);
-  const bvdCadByUnit = aggregateBVD(bvdCadRows);
+  // Read once so both files in a run are charged under the same rule, and reported back so
+  // the preview says which rule produced its numbers.
+  const discountKeptPercent = bvdDiscountKeptPercent();
+  const bvdUsdByUnit = aggregateBVD(bvdUsdRows, rateFor, { keptPercent: discountKeptPercent });
+  const bvdCadByUnit = aggregateBVD(bvdCadRows, undefined, { keptPercent: discountKeptPercent });
   const ezUsdByUnit  = aggregateEasyPass(ezUsdRows, rateFor);
   const ezCadByUnit  = aggregateEasyPass(ezCadRows);
   const bwUsdByTxp   = aggregateBlueWater(bwUsdRows, rateFor);
@@ -406,6 +409,7 @@ app.post('/api/process', upload.fields([
   res.json({
     jobId,
     exchange: { min: rateMin, max: rateMax, days: rateDays, markup: 0.02 },
+    bvdDiscountKeptPercent: discountKeptPercent,
     payPeriodStart,
     payPeriodEnd,
     preview: jobItems.map(({ billId, billNumber, billUrl, driverDisplayName, charges, alreadyPosted, hasNewCharges }) => ({

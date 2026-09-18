@@ -43,7 +43,8 @@ function runBvd() {
   const samplePath = sample('BVD USD June 9-15.csv');
   if (missing(samplePath)) return console.log('  BVD: SKIPPED, no sample file in input/\n');
   const rows = parseBVD(samplePath, BVD_START, BVD_END);
-  const map  = aggregateBVD(rows);
+  // These totals were recorded while 20% of the discount was kept, so check them under that rule.
+  const map  = aggregateBVD(rows, undefined, { keptPercent: 20 });
 
   let pass = 0, fail = 0;
   for (const [uid, expected] of Object.entries(BVD_EXPECTED)) {

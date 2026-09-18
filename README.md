@@ -52,6 +52,14 @@ Deducts fuel card and toll charges from driver settlement bills.
 Missing files are skipped; re-running for the same pay period is safe (duplicate
 descriptions are never double-posted).
 
+**Fuel discount.** BVD's Final AMT is already the discounted price. The driver is charged
+Final AMT plus `BVD_DISCOUNT_KEPT_PERCENT` of Disc AMT, the share of the discount the company
+keeps. It is `0` (drivers get the full discount) since the client suspended the old 20% in
+September 2026 "until further notice". Set it back to `20` to restore that. It applies to both
+the USD and CAD files, the preview header states which rule a run used, and a value outside
+0 to 100 stops processing rather than being guessed at. Charges already posted are not
+recalculated.
+
 **Cash advances.** A BVD row whose Prod column reads `C` is cash handed to the driver, not
 fuel. It is deducted like any other row with a **$20 US admin fee per advance**, and both
 ride the same daily conversion as the fuel beside them. They are not shown separately: the
@@ -109,6 +117,7 @@ things per driver:
 | `ROSEROCKET_USERNAME` | Login email |
 | `ROSEROCKET_PASSWORD` | Login password |
 | `MOTIVE_API_KEY` | Motive API key, read-only. Needs permission to read drivers and compliance logs |
+| `BVD_DISCOUNT_KEPT_PERCENT` | Share of each BVD fuel discount kept from the driver, 0 to 100. Default `0` |
 | `FUEL_SYNC_CRON` | (optional) Cron for the fuel-surcharge sync. Default `0 7 * * *` (daily 07:00) |
 | `FUEL_SYNC_TZ` | (optional) IANA timezone for the schedule. Default `America/Toronto` |
 

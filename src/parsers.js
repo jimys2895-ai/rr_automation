@@ -231,18 +231,38 @@ function accumulate(map, key, value, date, rateFor) {
   map.set(key, e);
 }
 
-// Sum BVD amounts per driver unit. Per row the source value is finalAmt + 20%×discAmt,
-// plus a flat admin fee on a cash advance. Keeping it unrounded until the final per-charge
-// round avoids per-row drift.
+// How much of each BVD fuel discount the company keeps instead of passing it to the driver.
+// Final AMT is already the discounted price, so the driver is charged Final AMT plus this
+// share of Disc AMT. It was 20% until September 2026, when the client suspended it "until
+// further notice" and drivers began getting the full discount. It is a setting rather than
+// a constant so it can be switched back without a code change.
+const DEFAULT_DISCOUNT_KEPT_PERCENT = 0;
+
+function bvdDiscountKeptPercent() {
+  const raw = process.env.BVD_DISCOUNT_KEPT_PERCENT;
+  if (raw === undefined || raw.trim() === '') return DEFAULT_DISCOUNT_KEPT_PERCENT;
+  const n = Number(raw);
+  // This decides what drivers are charged, so a typo stops processing rather than falling
+  // back to a default nobody chose.
+  if (!Number.isFinite(n) || n < 0 || n > 100) {
+    throw new Error(`BVD_DISCOUNT_KEPT_PERCENT must be a number from 0 to 100, got '${raw}'`);
+  }
+  return n;
+}
+
+// Sum BVD amounts per driver unit. Per row the source value is finalAmt plus the kept share
+// of discAmt, plus a flat admin fee on a cash advance. Keeping it unrounded until the final
+// per-charge round avoids per-row drift.
 //
 // The fee is in US dollars and is charged once per advance, so three advances in a period
 // carry three fees. It rides the same daily conversion as the amount it sits beside, which
 // is right because cash advances only ever appear in the USD export.
-function aggregateBVD(rows, rateFor = () => 1) {
+function aggregateBVD(rows, rateFor = () => 1, { keptPercent = bvdDiscountKeptPercent() } = {}) {
+  const kept = keptPercent / 100;
   const map = new Map(); // unitId → { usd, cad, byDate }
   for (const r of rows) {
     const fee = r.isCashAdvance ? CASH_ADVANCE_FEE_USD : 0;
-    accumulate(map, r.unitId, r.finalAmt + 0.20 * r.discAmt + fee, r.date, rateFor);
+    accumulate(map, r.unitId, r.finalAmt + kept * r.discAmt + fee, r.date, rateFor);
   }
   return map;
 }
@@ -263,6 +283,7 @@ function aggregateBlueWater(rows, rateFor = () => 1) {
 
 module.exports = {
   CASH_ADVANCE_FEE_USD,
+  bvdDiscountKeptPercent,
   parseBVD,
   parseEasyPass,
   parseBlueWater,
