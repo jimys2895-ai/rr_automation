@@ -61,7 +61,23 @@ async function fetchTrappersWeeks() {
 // Take whichever source has the newest week. Where both carry it they agree, so a
 // disagreement means one of them has changed and is worth saying out loud rather than
 // quietly picking a winner.
-async function fetchLatestSurcharge() {
+// Today's date where the rates are used, so a week turns over on the local Monday rather
+// than whenever UTC happens to roll.
+function todayLocal(timeZone = process.env.FUEL_SYNC_TZ || 'America/Toronto') {
+  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date());
+}
+
+// Both sources publish the coming week's rate days before it begins. Applying it on sight
+// put the orgs a week ahead, so the newest week that has STARTED is the one that counts.
+// A rate therefore lands on the Monday its week begins and not before.
+function pickStartedWeek(weeks, today) {
+  return weeks
+    .filter(w => w.weekStartingDate <= today)
+    .sort((a, b) => (a.weekStartingDate < b.weekStartingDate ? 1 : -1))[0] ?? null;
+}
+
+async function fetchLatestSurcharge({ today = todayLocal() } = {}) {
   const sources = [
     { name: 'speedy.ca', load: fetchSpeedyWeeks },
     { name: 'trapperstransport.com', load: fetchTrappersWeeks },
@@ -69,12 +85,17 @@ async function fetchLatestSurcharge() {
 
   const found = [];
   const failures = [];
+  let published = null;   // newest week either source lists, started or not
   for (const source of sources) {
     try {
       const weeks = await source.load();
       if (!weeks.length) throw new Error('no usable rows');
-      weeks.sort((a, b) => (a.weekStartingDate < b.weekStartingDate ? 1 : -1));
-      found.push({ source: source.name, ...weeks[0] });
+      for (const w of weeks) {
+        if (!published || w.weekStartingDate > published.weekStartingDate) published = w;
+      }
+      const current = pickStartedWeek(weeks, today);
+      if (!current) throw new Error(`no week has started yet on or before ${today}`);
+      found.push({ source: source.name, ...current });
     } catch (e) {
       failures.push(`${source.name}: ${e.message}`);
       console.warn(`[FuelSurcharge] ${source.name} unavailable: ${e.message}`);
@@ -90,7 +111,11 @@ async function fetchLatestSurcharge() {
     console.warn(`[FuelSurcharge] Sources disagree for week ${best.weekStartingDate}: `
       + `${best.source} ${best.ltl}/${best.tl} vs ${rival.source} ${rival.ltl}/${rival.tl}. Using ${best.source}.`);
   }
-  return best;
+  if (published && published.weekStartingDate > best.weekStartingDate) {
+    console.log(`[FuelSurcharge] Week of ${published.weekStartingDate} is published `
+      + `(LTL ${published.ltl}% / TL ${published.tl}%) and applies on that date, not before.`);
+  }
+  return { ...best, asOf: today, nextWeek: published && published.weekStartingDate > best.weekStartingDate ? published : null };
 }
 
 async function orgHeaders(orgUrl) {
@@ -157,6 +182,8 @@ async function runFuelSurchargeSync({ dryRun = false, onlyOrg = null } = {}) {
     dryRun,
     source: rates.source,
     weekStartingDate: rates.weekStartingDate,
+    asOf: rates.asOf,
+    nextWeek: rates.nextWeek,
     ltl: rates.ltl,
     tl: rates.tl,
     results,
@@ -166,4 +193,5 @@ async function runFuelSurchargeSync({ dryRun = false, onlyOrg = null } = {}) {
   return summary;
 }
 
-module.exports = { runFuelSurchargeSync, fetchLatestSurcharge, fetchSpeedyWeeks, fetchTrappersWeeks, ORGS };
+module.exports = { runFuelSurchargeSync, fetchLatestSurcharge, fetchSpeedyWeeks, fetchTrappersWeeks,
+                   pickStartedWeek, todayLocal, ORGS };

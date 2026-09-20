@@ -265,6 +265,11 @@ Their numbers agree week for week; they differ only in when each posts. Reading 
 a late post from one does not hold up the rate, and either being unreachable is survivable.
 A disagreement on the same week is logged rather than silently resolved.
 
+Both publish the coming week's rate days before it begins, so the job applies the newest
+week that has **started**, not the newest published. A rate therefore lands on the Monday
+its week begins and never earlier; a published future week is logged and left until its
+date. "Today" is read in `FUEL_SYNC_TZ`, so the week turns over on the local Monday.
+
 It runs daily rather than weekly because neither source publishes on a dependable day. A
 weekly run gets a single attempt at each week's rate and misses it outright when a source
 is late.
