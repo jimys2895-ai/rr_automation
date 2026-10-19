@@ -199,11 +199,13 @@ export default function HoursTab() {
     setPhase('input'); setData(null); setResults(null); setRejected(new Set()); setOverrides({});
   }
 
+  // Rows the tool cannot compute (status 'flag') are deliberately not shown. They were
+  // mostly manifests already past billing, which nothing can be done about, and the noise
+  // buried the rows that matter. The Google Sheet remains the complete record.
   const rows       = data?.rows ?? [];
   const proposals  = rows.filter(r => r.status === 'propose');
   const edited     = rows.filter(r => r.status === 'already_edited');
   const unchanged  = rows.filter(r => r.status === 'unchanged');
-  const flagged    = rows.filter(r => r.status === 'flag');
   const toWrite    = proposals.filter(r => !rejected.has(r.manifestId)).length;
 
   return (
@@ -283,7 +285,6 @@ export default function HoursTab() {
               end {data.endRounding === 'nearest' ? 'rounded to nearest 15 min' : 'rounded up to next 15 min'}
             </span>
             {edited.length > 0 && <span className="text-gray-300">{edited.length} already set by hand</span>}
-            {flagged.length > 0 && <span className="text-amber-300">{flagged.length} need a look</span>}
             <button
               onClick={() => download(
                 `manifest-hours ${data.startDate} to ${data.endDate}.csv`,
@@ -334,19 +335,6 @@ export default function HoursTab() {
               />
             ))}
           </div>
-
-          <Section title="Needs a look" count={flagged.length} tone="amber">
-            {flagged.map((r, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-t border-gray-50 first:border-t-0 text-sm">
-                <span className="text-xs font-mono text-gray-400 w-24 shrink-0">{r.date}</span>
-                <span className="text-gray-900 w-44 shrink-0 truncate">{r.driverName}</span>
-                {r.url
-                  ? <a href={r.url} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:text-blue-600 font-mono underline underline-offset-2 w-24 shrink-0">{r.fullId}</a>
-                  : <span className="text-xs text-gray-300 w-24 shrink-0">{r.fullId ?? '-'}</span>}
-                <span className="text-xs text-amber-600">{r.reason}</span>
-              </div>
-            ))}
-          </Section>
 
           <Section title="Already set by hand, left alone" count={edited.length}>
             {edited.map((r, i) => (

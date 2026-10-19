@@ -60,7 +60,8 @@ const differenceText = (seconds) => {
 // One row per line on screen, in the same order, carrying whatever the operator has
 // since typed or rejected so the file matches what they are looking at.
 export function previewRows(data, { overrides = {}, rejected = new Set() } = {}) {
-  return (data.rows ?? []).map(r => {
+  // The file has to match the screen, so rows the screen no longer shows are left out too.
+  return (data.rows ?? []).filter(r => r.status !== 'flag').map(r => {
     const override = overrides[r.manifestId];
     const willWrite = r.status === 'propose' && !rejected.has(r.manifestId)
       ? (override ?? r.computed?.seconds) : null;
